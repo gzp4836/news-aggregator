@@ -63,6 +63,16 @@ APP.Main = (function() {
    */
   function onStoryData (key, details) {
 
+    // 既然知道ID了就直接选择对象,何必要循环？
+    var story = document.getElementById('s-' + key);
+    var html = storyTemplate(details);
+    story.innerHTML = html;
+    
+    // TODO 不要每个对象都设置监听，父布局设计监听
+    story.addEventListener('click', onStoryClick.bind(this, details));
+//     story.classList.add('clickable');
+
+    /*
     // This seems odd. Surely we could just select the story
     // directly rather than looping through all of them.
     var storyElements = document.querySelectorAll('.story');
@@ -79,29 +89,37 @@ APP.Main = (function() {
         story.classList.add('clickable');
 
         // Tick down. When zero we can batch in the next load.
-        storyLoadCount--;
+        // storyLoadCount--;
 
       }
     }
 
-    // Colorize on complete.
+
+    Colorize on complete.
     if (storyLoadCount === 0)
       colorizeAndScaleStories();
+    */
+
   }
+  var d_section = document.createElement('section');
+  d_section.classList.add('story-details');
 
   function onStoryClick(details) {
 
     var storyDetails = $('sd-' + details.id);
 
-    // Wait a little time then show the story details.
-    setTimeout(showStory.bind(this, details.id), 60);
+    
+    if(storyDetails){
+      //移动到创建section之后，不用延时
+      requestAnimationFrame(showStory.bind(this, details.id));
+    }else
 
     // Create and append the story. A visual change...
     // perhaps that should be in a requestAnimationFrame?
     // And maybe, since they're all the same, I don't
     // need to make a new element every single time? I mean,
     // it inflates the DOM and I can only see one at once.
-    if (!storyDetails) {
+    {
 
       if (details.url)
         details.urlobj = new URL(details.url);
@@ -117,12 +135,18 @@ APP.Main = (function() {
         by: '', text: 'Loading comment...'
       });
 
-      storyDetails = document.createElement('section');
+      //常量不用循环中每次都生成，循环外部生成一次d_section
+      //storyDetails = document.createElement('section');
+      storyDetails = d_section;
       storyDetails.setAttribute('id', 'sd-' + details.id);
-      storyDetails.classList.add('story-details');
+      //storyDetails.classList.add('story-details');
       storyDetails.innerHTML = storyDetailsHtml;
 
-      document.body.appendChild(storyDetails);
+      requestAnimationFrame(function(){
+        document.body.appendChild(storyDetails);
+        //移动到创建section之后，不用延时
+        requestAnimationFrame(showStory.bind(this, details.id));
+      });
 
       commentsElement = storyDetails.querySelector('.js-comments');
       storyHeader = storyDetails.querySelector('.js-header');
@@ -157,8 +181,10 @@ APP.Main = (function() {
               localeData);
         });
       }
+    
+    
     }
-
+    
   }
 
   function showStory(id) {
@@ -169,7 +195,7 @@ APP.Main = (function() {
     inDetails = true;
 
     var storyDetails = $('#sd-' + id);
-    var left = null;
+    var left = 0;
 
     if (!storyDetails)
       return;
@@ -177,7 +203,14 @@ APP.Main = (function() {
     document.body.classList.add('details-active');
     storyDetails.style.opacity = 1;
 
+    //循环外执行，会引起强制同步布局
+    var storyDetailsPosition = storyDetails.getBoundingClientRect();
+    left = storyDetailsPosition.left;
+    
     function animate () {
+      /*
+      1.getBoundingClientRect会引发强制布局(forece synchronous layout).
+      2.而且storyDetailsPsition 等值不会再循环内改变没有必要再循环内多次计算故移除循环。
 
       // Find out where it currently is.
       var storyDetailsPosition = storyDetails.getBoundingClientRect();
@@ -185,18 +218,19 @@ APP.Main = (function() {
       // Set the left value if we don't have one already.
       if (left === null)
         left = storyDetailsPosition.left;
-
+      */
       // Now figure out where it needs to go.
       left += (0 - storyDetailsPosition.left) * 0.1;
-
       // Set up the next bit of the animation if there is more to do.
       if (Math.abs(left) > 0.5)
-        setTimeout(animate, 4);
+        requestAnimationFrame(animate);
+        //setTimeout(animate, 4);
       else
         left = 0;
 
       // And update the styles. Wait, is this a read-write cycle?
       // I hope I don't trigger a forced synchronous layout!
+      //获取left的方法移出了animate不会出现强制布局
       storyDetails.style.left = left + 'px';
     }
 
@@ -204,7 +238,8 @@ APP.Main = (function() {
     // every few milliseconds. That's going to keep
     // it all tight. Or maybe we're doing visual changes
     // and they should be in a requestAnimationFrame
-    setTimeout(animate, 4);
+    // setTimeout替换为requestAnimationFrame
+    requestAnimationFrame(animate);
   }
 
   function hideStory(id) {
@@ -218,19 +253,28 @@ APP.Main = (function() {
     document.body.classList.remove('details-active');
     storyDetails.style.opacity = 0;
 
+    // Find out where it currently is.再循环中会引起强制更新布局
+    var mainPosition = main.getBoundingClientRect();
+    var storyDetailsPosition = storyDetails.getBoundingClientRect();
+    var target = mainPosition.width + 100;
+
     function animate () {
+      /*
+      getBoundingClientRect引发forced synchronous layout
 
       // Find out where it currently is.
       var mainPosition = main.getBoundingClientRect();
       var storyDetailsPosition = storyDetails.getBoundingClientRect();
       var target = mainPosition.width + 100;
 
+      */
       // Now figure out where it needs to go.
       left += (target - storyDetailsPosition.left) * 0.1;
 
       // Set up the next bit of the animation if there is more to do.
       if (Math.abs(left - target) > 0.5) {
-        setTimeout(animate, 4);
+        requestAnimationFrame(animate)
+        // setTimeout(animate, 4);
       } else {
         left = target;
         inDetails = false;
@@ -245,46 +289,50 @@ APP.Main = (function() {
     // every few milliseconds. That's going to keep
     // it all tight. Or maybe we're doing visual changes
     // and they should be in a requestAnimationFrame
-    setTimeout(animate, 4);
+    // setTimeout(animate, 4);
+    requestAnimationFrame(animate);
   }
 
   /**
    * Does this really add anything? Can we do this kind
    * of work in a cheaper way?
+   * 这个效果真没必要，放心！我会和产品撕逼的！！
    */
   function colorizeAndScaleStories() {
 
-    var storyElements = document.querySelectorAll('.story');
+    // var storyElements = document.querySelectorAll('.story');
 
-    // It does seem awfully broad to change all the
-    // colors every time!
-    for (var s = 0; s < storyElements.length; s++) {
+    // // It does seem awfully broad to change all the
+    // // colors every time!
+    // for (var s = 0; s < storyElements.length; s++) {
 
-      var story = storyElements[s];
-      var score = story.querySelector('.story__score');
-      var title = story.querySelector('.story__title');
+    //   var story = storyElements[s];
+    //   var score = story.querySelector('.story__score');
+    //   var title = story.querySelector('.story__title');
 
-      // Base the scale on the y position of the score.
-      var height = main.offsetHeight;
-      var mainPosition = main.getBoundingClientRect();
-      var scoreLocation = score.getBoundingClientRect().top -
-          document.body.getBoundingClientRect().top;
-      var scale = Math.min(1, 1 - (0.05 * ((scoreLocation - 170) / height)));
-      var opacity = Math.min(1, 1 - (0.5 * ((scoreLocation - 170) / height)));
+    //   // Base the scale on the y position of the score.
+    //   var height = main.offsetHeight;
+    //   var mainPosition = main.getBoundingClientRect();
+    //   var scoreLocation = score.getBoundingClientRect().top -
+    //       document.body.getBoundingClientRect().top;
+    //   var scale = Math.min(1, 1 - (0.05 * ((scoreLocation - 170) / height)));
+    //   var opacity = Math.min(1, 1 - (0.5 * ((scoreLocation - 170) / height)));
 
-      score.style.width = (scale * 40) + 'px';
-      score.style.height = (scale * 40) + 'px';
-      score.style.lineHeight = (scale * 40) + 'px';
+    //   score.style.width = (scale * 40) + 'px';
+    //   score.style.height = (scale * 40) + 'px';
+    //   score.style.lineHeight = (scale * 40) + 'px';
 
-      // Now figure out how wide it is and use that to saturate it.
-      scoreLocation = score.getBoundingClientRect();
-      var saturation = (100 * ((scoreLocation.width - 38) / 2));
+    //   // Now figure out how wide it is and use that to saturate it.
+    //   scoreLocation = score.getBoundingClientRect();
+    //   var saturation = (100 * ((scoreLocation.width - 38) / 2));
 
-      score.style.backgroundColor = 'hsl(42, ' + saturation + '%, 50%)';
-      title.style.opacity = opacity;
-    }
+    //   score.style.backgroundColor = 'hsl(42, ' + saturation + '%, 50%)';
+    //   title.style.opacity = opacity;
+    // }
   }
-
+  
+  /*
+  scroll 事件是touchstart之后触发，touchstart禁止默认事件后，scroll失效
   main.addEventListener('touchstart', function(evt) {
 
     // I just wanted to test what happens if touchstart
@@ -294,6 +342,7 @@ APP.Main = (function() {
     }
 
   });
+  */
 
   main.addEventListener('scroll', function() {
 
@@ -348,6 +397,8 @@ APP.Main = (function() {
 
       APP.Data.getStoryById(stories[i], onStoryData.bind(this, key));
     }
+    // 添加监听
+//     $("main").addEventListener('click', onStoryClick.bind(this, key));
 
     storyStart += count;
 
