@@ -93,6 +93,7 @@ a {
 }
 
 /* 
+样式不在使用
 body.details-active .story__title,
 body.details-active .story__by,
 body.details-active .story__score {
@@ -152,6 +153,7 @@ main.loading {
 .story {
   padding: 16px 16px 16px 72px;
   background: #FFF;
+  /* 没必要背景在过渡了 */
   /* background: linear-gradient(to bottom, #FFF 0%,#F4F4F4 100%); */
   position: relative;
   min-height: 90px;
